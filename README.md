@@ -1,0 +1,2 @@
+# k8s-cluster-automation
+This project automates the deployment of a Kubernetes cluster on a private OpenStack cloud using Ansible roles. It includes provisioning of 1 master node and 2 worker nodes, deployment of monitoring tools (Prometheus and Grafana), and a containerized environment for hosting applications. The infrastructure is fully automated, scalable, and designed for testing and deploying cloud-native applications on private cloud resources.
