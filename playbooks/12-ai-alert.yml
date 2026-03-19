@@ -1,0 +1,11 @@
+- hosts: master
+  become: yes
+  tasks:
+
+    - name: Copy AI anomaly alert rule
+      copy:
+        src: ../manifests/ai-anomaly-alert.yaml
+        dest: /tmp/ai-anomaly-alert.yaml
+
+    - name: Apply AI anomaly alert rule
+      command: kubectl --kubeconfig=/etc/kubernetes/admin.conf apply -f /tmp/ai-anomaly-alert.yaml

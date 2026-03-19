@@ -1,0 +1,14 @@
+- hosts: master
+  become: yes
+  tasks:
+
+    # =========================================================
+    # DEPLOY AI SERVICEMONITOR
+    # =========================================================
+    - name: Copy AI ServiceMonitor to master
+      copy:
+        src: ../manifests/ai-servicemonitor.yaml
+        dest: /tmp/ai-servicemonitor.yaml
+
+    - name: Apply AI ServiceMonitor
+      command: kubectl --kubeconfig=/etc/kubernetes/admin.conf apply -f /tmp/ai-servicemonitor.yaml

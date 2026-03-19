@@ -1,0 +1,31 @@
+- hosts: master
+  become: yes
+  tasks:
+
+    - name: Check if nginx deployment exists
+      command: >
+        kubectl --kubeconfig=/etc/kubernetes/admin.conf
+        get deployment nginx-deployment
+      register: nginx_check
+      failed_when: false
+      changed_when: false
+
+    - name: Create nginx deployment
+      command: >
+        kubectl --kubeconfig=/etc/kubernetes/admin.conf
+        create deployment nginx-deployment --image=nginx
+      when: nginx_check.rc != 0
+
+    - name: Expose nginx service (NodePort)
+      command: >
+        kubectl --kubeconfig=/etc/kubernetes/admin.conf
+        expose deployment nginx-deployment
+        --type=NodePort
+        --port=80
+      when: nginx_check.rc != 0
+
+    - name: Wait for nginx pod to be ready
+      command: >
+        kubectl --kubeconfig=/etc/kubernetes/admin.conf
+        rollout status deployment/nginx-deployment
+

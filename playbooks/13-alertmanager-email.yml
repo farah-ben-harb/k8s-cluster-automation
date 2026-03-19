@@ -1,0 +1,15 @@
+- hosts: master
+  become: yes
+  tasks:
+
+    - name: Copy Alertmanager config
+      copy:
+        src: ../manifests/alertmanager-config.yaml
+        dest: /tmp/alertmanager-config.yaml
+
+    - name: Apply Alertmanager config
+      command: kubectl --kubeconfig=/etc/kubernetes/admin.conf apply -f /tmp/alertmanager-config.yaml
+
+    - name: Restart Alertmanager pod
+      command: kubectl --kubeconfig=/etc/kubernetes/admin.conf delete pod -l app.kubernetes.io/name=alertmanager -n monitoring
+

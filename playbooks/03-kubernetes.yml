@@ -1,0 +1,77 @@
+- hosts: all
+  become: yes
+
+  vars:
+    k8s_version: "v1.29"
+
+  tasks:
+
+    # =========================
+    # DEPENDENCIES
+    # =========================
+    - name: Install apt dependencies
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gpg
+        state: present
+        update_cache: yes
+
+    - name: Ensure keyrings directory exists
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    # =========================
+    # KUBERNETES GPG KEY (FIX 2026)
+    # =========================
+    - name: Download Kubernetes GPG key
+      get_url:
+        url: "https://pkgs.k8s.io/core:/stable:/{{ k8s_version }}/deb/Release.key"
+        dest: /tmp/kubernetes-release.key
+        mode: '0644'
+
+    - name: Convert GPG key to keyring format
+      command: >
+        gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+        /tmp/kubernetes-release.key
+      args:
+        creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
+    # =========================
+    # KUBERNETES REPOSITORY
+    # =========================
+    - name: Add Kubernetes apt repository
+      copy:
+        dest: /etc/apt/sources.list.d/kubernetes.list
+        content: |
+          deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/{{ k8s_version }}/deb/ /
+        mode: '0644'
+
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    # =========================
+    # INSTALL K8S COMPONENTS
+    # =========================
+    - name: Install Kubernetes packages
+      apt:
+        name:
+          - kubelet
+          - kubeadm
+          - kubectl
+        state: present
+
+    - name: Hold Kubernetes packages
+      command: apt-mark hold kubelet kubeadm kubectl
+      changed_when: false
+
+    - name: Enable kubelet
+      systemd:
+        name: kubelet
+        enabled: yes
+

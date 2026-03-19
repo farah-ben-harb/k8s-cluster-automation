@@ -1,0 +1,193 @@
+description: >
+  Kubernetes Phase 3
+  1 master + 2 workers
+  Ubuntu 22.04
+  Floating IP on all nodes
+  SSH via key only
+
+heat_template_version: '2018-08-31'
+
+parameters:
+  external_network:
+    type: string
+    default: provider
+
+  key_name:
+    type: string
+    default: jammy-key
+
+  node_flavor:
+    type: string
+    default: k8s
+
+  ubuntu_image:
+    type: string
+    default: Ubuntu 22.04 Jammy
+
+resources:
+
+  # ---------------- NETWORK ----------------
+
+  k8s_net:
+    type: OS::Neutron::Net
+    properties:
+      name: k8s-net
+
+  k8s_subnet:
+    type: OS::Neutron::Subnet
+    properties:
+      network_id: { get_resource: k8s_net }
+      cidr: 10.30.0.0/24
+      ip_version: 4
+      dns_nameservers:
+        - 8.8.8.8
+        - 8.8.4.4
+
+  router:
+    type: OS::Neutron::Router
+    properties:
+      name: k8s-router
+      external_gateway_info:
+        network: { get_param: external_network }
+
+  router_interface:
+    type: OS::Neutron::RouterInterface
+    properties:
+      router_id: { get_resource: router }
+      subnet_id: { get_resource: k8s_subnet }
+
+  # ---------------- SECURITY GROUP ----------------
+
+  k8s_sg:
+    type: OS::Neutron::SecurityGroup
+    properties:
+      name: k8s-sg
+      description: Kubernetes required ports
+      rules:
+        - direction: ingress
+          protocol: tcp
+          port_range_min: 22
+          port_range_max: 22
+          remote_ip_prefix: 0.0.0.0/0
+
+        - direction: ingress
+          protocol: tcp
+          port_range_min: 6443
+          port_range_max: 6443
+          remote_ip_prefix: 0.0.0.0/0
+
+        - direction: ingress
+          protocol: tcp
+          port_range_min: 2379
+          port_range_max: 2380
+          remote_ip_prefix: 0.0.0.0/0
+
+        - direction: ingress
+          protocol: tcp
+          port_range_min: 10250
+          port_range_max: 10250
+          remote_ip_prefix: 0.0.0.0/0
+
+        - direction: ingress
+          protocol: tcp
+          port_range_min: 30000
+          port_range_max: 32767
+          remote_ip_prefix: 0.0.0.0/0
+
+        - direction: ingress
+          protocol: icmp
+          remote_ip_prefix: 0.0.0.0/0
+
+  # ---------------- PORTS ----------------
+
+  port_master:
+    type: OS::Neutron::Port
+    properties:
+      network_id: { get_resource: k8s_net }
+      security_groups:
+        - { get_resource: k8s_sg }
+
+  port_worker1:
+    type: OS::Neutron::Port
+    properties:
+      network_id: { get_resource: k8s_net }
+      security_groups:
+        - { get_resource: k8s_sg }
+
+  port_worker2:
+    type: OS::Neutron::Port
+    properties:
+      network_id: { get_resource: k8s_net }
+      security_groups:
+        - { get_resource: k8s_sg }
+
+  # ---------------- SERVERS ----------------
+
+  k8s_master:
+    type: OS::Nova::Server
+    properties:
+      name: k8s-master
+      image: { get_param: ubuntu_image }
+      flavor: { get_param: node_flavor }
+      key_name: { get_param: key_name }
+      networks:
+        - port: { get_resource: port_master }
+
+  k8s_worker1:
+    type: OS::Nova::Server
+    properties:
+      name: k8s-worker-1
+      image: { get_param: ubuntu_image }
+      flavor: { get_param: node_flavor }
+      key_name: { get_param: key_name }
+      networks:
+        - port: { get_resource: port_worker1 }
+
+  k8s_worker2:
+    type: OS::Nova::Server
+    properties:
+      name: k8s-worker-2
+      image: { get_param: ubuntu_image }
+      flavor: { get_param: node_flavor }
+      key_name: { get_param: key_name }
+      networks:
+        - port: { get_resource: port_worker2 }
+
+  # ---------------- FLOATING IPS ----------------
+
+  fip_master:
+    type: OS::Neutron::FloatingIP
+    depends_on: router_interface
+    properties:
+      floating_network: { get_param: external_network }
+      port_id: { get_resource: port_master }
+
+  fip_worker1:
+    type: OS::Neutron::FloatingIP
+    depends_on: router_interface
+    properties:
+      floating_network: { get_param: external_network }
+      port_id: { get_resource: port_worker1 }
+
+  fip_worker2:
+    type: OS::Neutron::FloatingIP
+    depends_on: router_interface
+    properties:
+      floating_network: { get_param: external_network }
+      port_id: { get_resource: port_worker2 }
+
+# ---------------- OUTPUTS ----------------
+
+outputs:
+  master_fip:
+    description: Floating IP of Kubernetes master
+    value: { get_attr: [fip_master, floating_ip_address] }
+
+  worker1_fip:
+    description: Floating IP of worker 1
+    value: { get_attr: [fip_worker1, floating_ip_address] }
+
+  worker2_fip:
+    description: Floating IP of worker 2
+    value: { get_attr: [fip_worker2, floating_ip_address] }
+

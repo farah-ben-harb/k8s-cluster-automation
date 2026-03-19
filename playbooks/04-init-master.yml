@@ -1,0 +1,12 @@
+- hosts: master
+  become: yes
+  tasks:
+    - name: Init cluster
+      command: kubeadm init --pod-network-cidr=192.168.0.0/16
+      register: kubeadm_output
+
+    - name: Save join command
+      copy:
+        dest: /tmp/join.sh
+        content: "{{ kubeadm_output.stdout_lines | select('search','kubeadm join') | list | join(' ') }}"
+

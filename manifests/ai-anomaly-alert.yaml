@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: ai-anomaly-alert
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+  groups:
+  - name: ai-anomaly
+    rules:
+    - alert: AIAnomalyDetected
+      expr: anomaly_flag == 1
+      for: 0m
+      labels:
+        severity: critical
+      annotations:
+        summary: "AI detected anomaly on pod {{ $labels.pod }}"
+        description: "Isolation Forest model flagged this pod as anomalous."

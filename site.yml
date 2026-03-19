@@ -1,0 +1,130 @@
+# =========================================================
+# PREREQUIS SYSTEME
+# =========================================================
+- import_playbook: playbooks/01-prereqs.yml
+
+# =========================================================
+# CONTAINER RUNTIME
+# =========================================================
+- import_playbook: playbooks/02-containerd.yml
+
+# =========================================================
+# KUBERNETES BINAIRES
+# =========================================================
+- import_playbook: playbooks/03-kubernetes.yml
+
+
+# =========================================================
+# INIT MASTER (IDEMPOTENT)
+# =========================================================
+- hosts: master
+  become: yes
+  tasks:
+
+    - name: Check if cluster is already initialized
+      stat:
+        path: /etc/kubernetes/admin.conf
+      register: k8s_cluster
+
+    - name: Pre-pull Kubernetes images (faster init)
+      command: kubeadm config images pull
+      when: not k8s_cluster.stat.exists
+
+    - name: Init Kubernetes cluster (only once)
+      command: kubeadm init --pod-network-cidr=192.168.0.0/16
+      when: not k8s_cluster.stat.exists
+      register: kubeadm_init
+
+    - name: Save join command
+      copy:
+        dest: /tmp/join.sh
+        content: "{{ kubeadm_init.stdout_lines | select('search','kubeadm join') | list | join(' ') }}"
+      when: kubeadm_init is defined and kubeadm_init.stdout is defined
+
+
+# =========================================================
+# CONFIGURE KUBECTL FOR UBUNTU USER
+# =========================================================
+- hosts: master
+  become: yes
+  tasks:
+
+    - name: Ensure kube config directory exists
+      file:
+        path: /home/ubuntu/.kube
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+
+    - name: Copy admin.conf to ubuntu kubeconfig
+      copy:
+        src: /etc/kubernetes/admin.conf
+        dest: /home/ubuntu/.kube/config
+        owner: ubuntu
+        group: ubuntu
+        mode: '0644'
+        remote_src: yes
+      when: k8s_cluster.stat.exists
+
+
+# =========================================================
+# INSTALL CNI (CALICO) - SAFE VERSION
+# =========================================================
+- hosts: master
+  become: yes
+  tasks:
+
+    - name: Check if Calico is already installed
+      command: >
+        kubectl --kubeconfig=/etc/kubernetes/admin.conf
+        get daemonset calico-node -n kube-system
+      register: calico_check
+      failed_when: false
+      changed_when: false
+
+    - name: Install Calico CNI
+      command: >
+        kubectl --kubeconfig=/etc/kubernetes/admin.conf
+        apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.27.0/manifests/calico.yaml
+      when: calico_check.rc != 0
+
+
+# =========================================================
+# JOIN WORKERS (IDEMPOTENT)
+# =========================================================
+- hosts: master
+  become: yes
+  tasks:
+
+    - name: Generate fresh join command
+      command: kubeadm token create --print-join-command
+      register: join_cmd
+
+- hosts: workers
+  become: yes
+  tasks:
+
+    - name: Check if worker already joined
+      stat:
+        path: /etc/kubernetes/kubelet.conf
+      register: worker_joined
+
+    - name: Join worker to cluster
+      command: "{{ hostvars[groups['master'][0]].join_cmd.stdout }}"
+      when: not worker_joined.stat.exists
+      
+# =========================================================
+# DEPLOY TEST NGINX
+# =========================================================
+- import_playbook: playbooks/08-nginx.yml
+
+
+# =========================================================
+# INSTALL MONITORING STACK
+# =========================================================
+- import_playbook: playbooks/09-prometheus-grafana.yml
+
+
+
+

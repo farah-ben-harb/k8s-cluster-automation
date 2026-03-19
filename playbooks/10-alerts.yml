@@ -1,0 +1,62 @@
+- hosts: master
+  become: yes
+  tasks:
+
+    # =========================================================
+    # DEPLOY CPU ALERT RULE
+    # =========================================================
+    - name: Create CPU alert rule file
+      copy:
+        dest: /tmp/cpu-alert.yaml
+        content: |
+          apiVersion: monitoring.coreos.com/v1
+          kind: PrometheusRule
+          metadata:
+            name: node-cpu-alert
+            namespace: monitoring
+            labels:
+              release: monitoring
+          spec:
+            groups:
+            - name: node-cpu
+              rules:
+              - alert: NodeHighCPUUsage
+                expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[1m])) * 100) > 80
+                labels:
+                  severity: critical
+                annotations:
+                  summary: "High CPU usage on {{ $labels.instance }}"
+                  description: "CPU usage is above 80%."
+
+    - name: Apply CPU alert rule
+      command: kubectl --kubeconfig=/etc/kubernetes/admin.conf apply -f /tmp/cpu-alert.yaml
+
+    # =========================================================
+    # DEPLOY MEMORY ALERT RULE
+    # =========================================================
+    - name: Create Memory alert rule file
+      copy:
+        dest: /tmp/memory-alert.yaml
+        content: |
+          apiVersion: monitoring.coreos.com/v1
+          kind: PrometheusRule
+          metadata:
+            name: node-memory-alert
+            namespace: monitoring
+            labels:
+              release: monitoring
+          spec:
+            groups:
+            - name: node-memory
+              rules:
+              - alert: NodeHighMemoryUsage
+                expr: 100 * (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 85
+                labels:
+                  severity: critical
+                annotations:
+                  summary: "High memory usage on {{ $labels.instance }}"
+                  description: "Memory usage is above 85%."
+
+    - name: Apply Memory alert rule
+      command: kubectl --kubeconfig=/etc/kubernetes/admin.conf apply -f /tmp/memory-alert.yaml
+
