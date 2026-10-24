@@ -1,15 +1,38 @@
 - hosts: master
   become: yes
+  vars:
+    alertmanager_smtp_from: "{{ lookup('ansible.builtin.env', 'ALERTMANAGER_SMTP_FROM') }}"
+    alertmanager_smtp_username: "{{ lookup('ansible.builtin.env', 'ALERTMANAGER_SMTP_USERNAME') }}"
+    alertmanager_smtp_password: "{{ lookup('ansible.builtin.env', 'ALERTMANAGER_SMTP_PASSWORD') }}"
+    alertmanager_smtp_to: "{{ lookup('ansible.builtin.env', 'ALERTMANAGER_SMTP_TO') }}"
   tasks:
+    - name: Require SMTP configuration on the Ansible controller
+      ansible.builtin.assert:
+        that:
+          - alertmanager_smtp_from | length > 0
+          - alertmanager_smtp_username | length > 0
+          - alertmanager_smtp_password | length > 0
+          - alertmanager_smtp_to | length > 0
+        fail_msg: Set ALERTMANAGER_SMTP_FROM, ALERTMANAGER_SMTP_USERNAME, ALERTMANAGER_SMTP_PASSWORD, and ALERTMANAGER_SMTP_TO before running this playbook.
+      no_log: true
 
-    - name: Copy Alertmanager config
-      copy:
-        src: ../manifests/alertmanager-config.yaml
-        dest: /tmp/alertmanager-config.yaml
+    - name: Apply Alertmanager configuration
+      block:
+        - name: Render Alertmanager configuration on the master
+          ansible.builtin.template:
+            src: ../manifests/alertmanager-config.yaml.j2
+            dest: /tmp/alertmanager-config.yaml
+            mode: '0600'
+          no_log: true
 
-    - name: Apply Alertmanager config
-      command: kubectl --kubeconfig=/etc/kubernetes/admin.conf apply -f /tmp/alertmanager-config.yaml
+        - name: Apply Alertmanager configuration to Kubernetes
+          ansible.builtin.command: kubectl --kubeconfig=/etc/kubernetes/admin.conf apply -f /tmp/alertmanager-config.yaml
+          no_log: true
+      always:
+        - name: Remove temporary Alertmanager configuration
+          ansible.builtin.file:
+            path: /tmp/alertmanager-config.yaml
+            state: absent
 
     - name: Restart Alertmanager pod
-      command: kubectl --kubeconfig=/etc/kubernetes/admin.conf delete pod -l app.kubernetes.io/name=alertmanager -n monitoring
-
+      ansible.builtin.command: kubectl --kubeconfig=/etc/kubernetes/admin.conf delete pod -l app.kubernetes.io/name=alertmanager -n monitoring
