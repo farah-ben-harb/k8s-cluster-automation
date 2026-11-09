@@ -84,3 +84,9 @@ flowchart LR
 - Python installed on remote nodes  
 - Kubernetes dependencies (automated via Ansible roles)  
 
+
+## Alertmanager email configuration
+
+The optional email playbook requires four environment variables on the Ansible control machine: `ALERTMANAGER_SMTP_FROM`, `ALERTMANAGER_SMTP_USERNAME`, `ALERTMANAGER_SMTP_PASSWORD`, and `ALERTMANAGER_SMTP_TO`. Load the password from a secret manager or another secure local source; never add it to this repository or command history. Then run `ansible-playbook playbooks/13-alertmanager-email.yml` from the repository root.
+
+The playbook renders the Kubernetes Secret only on the cluster master with file mode `0600`, applies it, and removes the temporary file. Kubernetes Secrets still require appropriate cluster access controls and encryption at rest. A previously committed SMTP credential must be revoked by the mailbox owner; removing it from the current tree does not remove it from Git history.
