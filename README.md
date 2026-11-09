@@ -1,92 +1,104 @@
-# Ansible Kubernetes Deployment on OpenStack
+# Kubernetes Cluster Automation on OpenStack
 
-Automated solution for deploying a Kubernetes cluster on a private cloud using OpenStack and Ansible.
+Ansible automation for bootstrapping a small Kubernetes lab on OpenStack
+instances. The playbooks install containerd and Kubernetes, initialize the
+control plane, join workers, install Calico, and add Prometheus and Grafana.
 
-## Overview
+## Current status
 
-This project provisions a cluster composed of:
-
-- 1 master node
-- 2 worker nodes
-
-It also integrates a monitoring stack with Prometheus and Grafana for observability.
+The repository contains the complete lab automation and monitoring manifests.
+The November 2026 audit validated the YAML structure and removed committed SMTP
+credentials. A fresh end-to-end run against OpenStack and Kubernetes was not
+performed, so inventory addresses, operating-system compatibility, and cluster
+state must be checked before execution.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    OpenStack[OpenStack] --> Master[Master Node]
-    OpenStack --> Worker1[Worker Node 1]
-    OpenStack --> Worker2[Worker Node 2]
-    Master --> K8s[Kubernetes]
-    Worker1 --> K8s
-    Worker2 --> K8s
-    K8s --> Monitoring[Prometheus / Grafana]
+    OpenStack --> ControlPlane[1 control-plane node]
+    OpenStack --> Worker1[Worker node 1]
+    OpenStack --> Worker2[Worker node 2]
+    ControlPlane --> Kubernetes
+    Worker1 --> Kubernetes
+    Worker2 --> Kubernetes
+    Kubernetes --> Calico
+    Kubernetes --> Monitoring[Prometheus / Grafana / Alertmanager]
 ```
 
-## Key Features
+## Repository layout
 
-- Automated Kubernetes cluster deployment using Ansible roles
-- Provisioning on OpenStack private cloud infrastructure
-- Monitoring setup with Prometheus and Grafana
-- Modular and reusable Ansible playbooks
-- Ready environment for deploying containerized applications
-
-## Repository Structure
-
-- `site.yml` main Ansible entry point
-- `playbooks/` task orchestration
-- `group_vars/` environment-specific variables
-- `inventory/` host inventory
-- `manifests/` Kubernetes manifests
-- `deploy.sh` deployment helper
-- `k8s-heat.yaml` OpenStack Heat support file
-
-## Usage
-
-- Prepare the OpenStack environment and inventory
-- Run the main Ansible playbook
-- Validate cluster readiness
-- Deploy workloads and monitoring
-
-## Branching and Commits
-
-- Use branches such as `feat/<area>`, `fix/<area>`, `docs/<area>`, or `infra/<area>`
-- Keep commits tied to one automation change
-- Prefer Conventional Commits such as `feat(ansible): add worker node bootstrap role`
-- Avoid vague commit messages like `update`, `final`, or `test`
-
-## Contributing
-
-- Keep inventory and variable files clear and consistent
-- Document any change that affects the cluster bootstrap process
-- Avoid committing generated logs, credentials, or machine-specific files
-
----
-
-
----
-
-## Technologies Used
-- **Kubernetes** – Container orchestration  
-- **Ansible** – Automation & configuration management  
-- **OpenStack** – Private cloud infrastructure  
-- **Docker** – Container runtime  
-- **Prometheus** – Monitoring & metrics collection  
-- **Grafana** – Data visualization and dashboards  
-
----
+- `site.yml`: main orchestration entry point;
+- `playbooks/`: prerequisite, containerd, Kubernetes, Calico, join, workload,
+  monitoring, and alerting steps;
+- `inventory/hosts.ini`: Ansible inventory;
+- `group_vars/`: shared and host-group variables;
+- `manifests/`: monitoring and alerting templates;
+- `k8s-heat.yaml`: supporting OpenStack Heat template;
+- `deploy.sh`: environment-specific deployment helper.
 
 ## Prerequisites
-- OpenStack environment with running instances  
-- SSH access to all nodes  
-- Ansible installed on control machine  
-- Python installed on remote nodes  
-- Kubernetes dependencies (automated via Ansible roles)  
 
+- reachable Ubuntu instances on OpenStack;
+- SSH key access from the Ansible controller;
+- Python on the managed nodes;
+- Ansible on the controller;
+- inventory addresses and variables reviewed for the target environment.
+
+## Run the automation
+
+Review `inventory/hosts.ini`, `group_vars/`, and every playbook that affects an
+existing cluster. Then run:
+
+```bash
+ansible-playbook -i inventory/hosts.ini site.yml
+```
+
+The repository also includes `deploy.sh`, which prepares environment-specific
+inventory data. Read it before execution because it is tailored to the original
+OpenStack lab.
 
 ## Alertmanager email configuration
 
-The optional email playbook requires four environment variables on the Ansible control machine: `ALERTMANAGER_SMTP_FROM`, `ALERTMANAGER_SMTP_USERNAME`, `ALERTMANAGER_SMTP_PASSWORD`, and `ALERTMANAGER_SMTP_TO`. Load the password from a secret manager or another secure local source; never add it to this repository or command history. Then run `ansible-playbook playbooks/13-alertmanager-email.yml` from the repository root.
+Email credentials are read from the Ansible controller and are never expected in
+Git:
 
-The playbook renders the Kubernetes Secret only on the cluster master with file mode `0600`, applies it, and removes the temporary file. Kubernetes Secrets still require appropriate cluster access controls and encryption at rest. A previously committed SMTP credential must be revoked by the mailbox owner; removing it from the current tree does not remove it from Git history.
+```bash
+export ALERTMANAGER_SMTP_FROM='sender@example.org'
+export ALERTMANAGER_SMTP_USERNAME='sender@example.org'
+export ALERTMANAGER_SMTP_PASSWORD='app-password'
+export ALERTMANAGER_SMTP_TO='recipient@example.org'
+
+ansible-playbook -i inventory/hosts.ini playbooks/13-alertmanager-email.yml
+```
+
+The playbook refuses to continue when a value is missing, renders a temporary
+file with mode `0600`, applies the Kubernetes Secret, and removes the file.
+
+## Validation
+
+Run syntax checks before targeting a cluster:
+
+```bash
+ansible-playbook --syntax-check -i inventory/hosts.ini site.yml
+ansible-playbook --syntax-check -i inventory/hosts.ini playbooks/13-alertmanager-email.yml
+```
+
+After deployment:
+
+```bash
+kubectl get nodes
+kubectl get pods --all-namespaces
+kubectl get svc -n monitoring
+```
+
+## Security notes
+
+An SMTP credential was present in earlier Git history and must be considered
+compromised. Removing it from the current branch does not revoke it; rotate that
+credential with the email provider. Keep inventories, private keys, kubeconfigs,
+and generated secrets outside the repository.
+
+This automation targets a learning environment. Review network exposure,
+Kubernetes versions, idempotency, and upgrade behavior before adapting it to a
+shared or production cluster.
