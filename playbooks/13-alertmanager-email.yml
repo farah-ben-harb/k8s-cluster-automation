@@ -35,4 +35,13 @@
             state: absent
 
     - name: Restart Alertmanager pod
-      ansible.builtin.command: kubectl --kubeconfig=/etc/kubernetes/admin.conf delete pod -l app.kubernetes.io/name=alertmanager -n monitoring
+      ansible.builtin.command: kubectl --kubeconfig=/etc/kubernetes/admin.conf delete pod -l app.kubernetes.io/name=alertmanager -n monitoring --wait=true
+      no_log: true
+
+    - name: Wait for Alertmanager to become ready
+      ansible.builtin.command: >-
+        kubectl --kubeconfig=/etc/kubernetes/admin.conf
+        wait --for=condition=Ready pod
+        -l app.kubernetes.io/name=alertmanager
+        -n monitoring --timeout=120s
+      changed_when: false

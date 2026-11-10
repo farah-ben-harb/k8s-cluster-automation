@@ -41,6 +41,7 @@ flowchart LR
 
 - reachable Ubuntu instances on OpenStack;
 - SSH key access from the Ansible controller;
+- host keys verified in the controller's `known_hosts` file;
 - Python on the managed nodes;
 - Ansible on the controller;
 - inventory addresses and variables reviewed for the target environment.
