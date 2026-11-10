@@ -15,6 +15,8 @@ OPENRC="$HOME/admin-openrc"
 MAX_WAIT_SECONDS="${MAX_WAIT_SECONDS:-900}"
 SSH_WAIT_SECONDS="${SSH_WAIT_SECONDS:-600}"
 INVENTORY_FILE="${INVENTORY_FILE:-$SCRIPT_DIR/inventory/generated-hosts.ini}"
+ADMIN_CIDR="${ADMIN_CIDR:-192.168.1.0/24}"
+NODEPORT_CIDR="${NODEPORT_CIDR:-192.168.1.0/24}"
 
 ############################################
 # LOAD OPENSTACK CREDENTIALS
@@ -37,6 +39,8 @@ echo "🚀 Creating OpenStack stack..."
 
 openstack stack create \
   --template "$TEMPLATE" \
+  --parameter "admin_cidr=$ADMIN_CIDR" \
+  --parameter "nodeport_cidr=$NODEPORT_CIDR" \
   "$STACK_NAME"
 
 ############################################

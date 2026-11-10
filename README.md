@@ -63,7 +63,9 @@ The Heat template defaults to the original lab administration network
 `192.168.1.0/24` for SSH, the Kubernetes API, ICMP, and NodePorts. Override
 `admin_cidr` and `nodeport_cidr` for another environment; do not widen these
 values to `0.0.0.0/0`. The helper writes its generated inventory to
-`inventory/generated-hosts.ini`, which is intentionally ignored by Git.
+`inventory/generated-hosts.ini`, which is intentionally ignored by Git. Set
+`ADMIN_CIDR` and `NODEPORT_CIDR` before running `deploy.sh` when the lab uses a
+different administration network.
 
 ## Alertmanager email configuration
 
