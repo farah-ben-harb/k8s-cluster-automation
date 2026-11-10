@@ -58,6 +58,12 @@ The repository also includes `deploy.sh`, which prepares environment-specific
 inventory data. Read it before execution because it is tailored to the original
 OpenStack lab.
 
+The Heat template defaults to the original lab administration network
+`192.168.1.0/24` for SSH, the Kubernetes API, ICMP, and NodePorts. Override
+`admin_cidr` and `nodeport_cidr` for another environment; do not widen these
+values to `0.0.0.0/0`. The helper writes its generated inventory to
+`inventory/generated-hosts.ini`, which is intentionally ignored by Git.
+
 ## Alertmanager email configuration
 
 Email credentials are read from the Ansible controller and are never expected in
