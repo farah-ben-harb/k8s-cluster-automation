@@ -109,6 +109,13 @@ resources:
           protocol: '4'
           remote_ip_prefix: 10.30.0.0/24
 
+        # The referenced Calico manifest uses BGP for node route exchange.
+        - direction: ingress
+          protocol: tcp
+          port_range_min: 179
+          port_range_max: 179
+          remote_ip_prefix: 10.30.0.0/24
+
         - direction: ingress
           protocol: tcp
           port_range_min: 30000
