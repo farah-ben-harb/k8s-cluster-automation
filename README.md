@@ -108,6 +108,10 @@ compromised. Removing it from the current branch does not revoke it; rotate that
 credential with the email provider. Keep inventories, private keys, kubeconfigs,
 and generated secrets outside the repository.
 
+The validation workflow scans the current checkout for new secrets. Historical
+secret exposure remains a separate remediation item and is not treated as proof
+that the old credential is safe.
+
 This automation targets a learning environment. Review network exposure,
 Kubernetes versions, idempotency, and upgrade behavior before adapting it to a
 shared or production cluster.

@@ -9,6 +9,7 @@
     - name: Save join command for workers
       set_fact:
         kubeadm_join_cmd: "{{ join_command.stdout }}"
+      no_log: true
 
 - hosts: workers
   become: yes
