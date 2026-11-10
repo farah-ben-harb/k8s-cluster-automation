@@ -1,12 +1,23 @@
 - hosts: master
   become: yes
   tasks:
+    - name: Check whether the control plane is already initialized
+      ansible.builtin.stat:
+        path: /etc/kubernetes/admin.conf
+      register: k8s_cluster
+      changed_when: false
+
     - name: Init cluster
       command: kubeadm init --pod-network-cidr=192.168.0.0/16
       register: kubeadm_output
+      when: not k8s_cluster.stat.exists
+      no_log: true
 
     - name: Save join command
       copy:
         dest: /tmp/join.sh
         content: "{{ kubeadm_output.stdout_lines | select('search','kubeadm join') | list | join(' ') }}"
+        mode: '0700'
+      when: kubeadm_output is defined and kubeadm_output.stdout is defined
+      no_log: true
 

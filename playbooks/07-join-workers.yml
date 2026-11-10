@@ -4,6 +4,7 @@
     - name: Get join command
       command: kubeadm token create --print-join-command
       register: join_command
+      no_log: true
 
     - name: Save join command for workers
       set_fact:
@@ -14,4 +15,7 @@
   tasks:
     - name: Join workers to the cluster
       command: "{{ hostvars[groups['master'][0]].kubeadm_join_cmd }}"
+      args:
+        creates: /etc/kubernetes/kubelet.conf
+      no_log: true
 

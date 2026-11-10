@@ -34,13 +34,7 @@
       command: kubeadm init --pod-network-cidr=192.168.0.0/16
       when: not k8s_cluster.stat.exists
       register: kubeadm_init
-
-    - name: Save join command
-      copy:
-        dest: /tmp/join.sh
-        content: "{{ kubeadm_init.stdout_lines | select('search','kubeadm join') | list | join(' ') }}"
-      when: kubeadm_init is defined and kubeadm_init.stdout is defined
-
+      no_log: true
 
 # =========================================================
 # CONFIGURE KUBECTL FOR UBUNTU USER
@@ -48,6 +42,12 @@
 - hosts: master
   become: yes
   tasks:
+
+    - name: Check admin kubeconfig after cluster initialization
+      stat:
+        path: /etc/kubernetes/admin.conf
+      register: admin_kubeconfig
+      changed_when: false
 
     - name: Ensure kube config directory exists
       file:
@@ -63,9 +63,9 @@
         dest: /home/ubuntu/.kube/config
         owner: ubuntu
         group: ubuntu
-        mode: '0644'
+        mode: '0600'
         remote_src: yes
-      when: k8s_cluster.stat.exists
+      when: admin_kubeconfig.stat.exists
 
 
 # =========================================================
@@ -100,6 +100,7 @@
     - name: Generate fresh join command
       command: kubeadm token create --print-join-command
       register: join_cmd
+      no_log: true
 
 - hosts: workers
   become: yes
@@ -113,6 +114,7 @@
     - name: Join worker to cluster
       command: "{{ hostvars[groups['master'][0]].join_cmd.stdout }}"
       when: not worker_joined.stat.exists
+      no_log: true
       
 # =========================================================
 # DEPLOY TEST NGINX
