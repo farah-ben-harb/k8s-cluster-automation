@@ -35,7 +35,7 @@
             --from-file=alertmanager.yaml=/tmp/alertmanager.yaml
             --dry-run=client --output yaml |
             kubectl --kubeconfig=/etc/kubernetes/admin.conf
-            apply --server-side --field-manager=alertmanager-email --filename -
+            apply --filename -
           args:
             executable: /bin/bash
           no_log: true

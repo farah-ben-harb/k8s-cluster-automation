@@ -52,6 +52,25 @@ jobs:
           ansible-playbook --syntax-check -i inventory/hosts.ini site.yml
           ansible-playbook --syntax-check -i inventory/hosts.ini playbooks/13-alertmanager-email.yml
 
+      - name: Render Alertmanager template with dummy values
+        run: |
+          ansible localhost -c local -m ansible.builtin.template \
+            -a "src=manifests/alertmanager-config.yaml.j2 dest=/tmp/alertmanager.yaml mode=0600" \
+            -e 'alertmanager_smtp_from=ci-sender@example.invalid' \
+            -e 'alertmanager_smtp_username=ci-sender@example.invalid' \
+            -e 'alertmanager_smtp_password=ci-only-placeholder' \
+            -e 'alertmanager_smtp_to=ci-receiver@example.invalid'
+          python - <<'PY'
+          from pathlib import Path
+          import yaml
+
+          config = yaml.safe_load(Path('/tmp/alertmanager.yaml').read_text(encoding='utf-8'))
+          assert config['global']['smtp_require_tls'] is True
+          assert config['receivers'][1]['email_configs'][0]['to'] == 'ci-receiver@example.invalid'
+          assert 'apiVersion' not in config
+          print('validated rendered Alertmanager configuration')
+          PY
+
       - name: Install ShellCheck
         run: sudo apt-get update && sudo apt-get install --yes shellcheck
 
