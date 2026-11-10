@@ -26,7 +26,7 @@ parameters:
 
   admin_cidr:
     type: string
-    description: CIDR allowed to reach SSH, the Kubernetes API and lab NodePorts.
+    description: CIDR allowed to reach SSH, the Kubernetes API and ICMP.
     default: 192.168.1.0/24
 
   nodeport_cidr:
@@ -102,6 +102,11 @@ resources:
           protocol: tcp
           port_range_min: 10250
           port_range_max: 10250
+          remote_ip_prefix: 10.30.0.0/24
+
+        # Calico v3.27 uses IP-in-IP by default in the referenced manifest.
+        - direction: ingress
+          protocol: '4'
           remote_ip_prefix: 10.30.0.0/24
 
         - direction: ingress
