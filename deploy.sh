@@ -25,6 +25,7 @@ NODEPORT_CIDR="${NODEPORT_CIDR:-192.168.1.0/24}"
 echo "🔐 Loading OpenStack credentials..."
 
 if [ -f "$OPENRC" ]; then
+    # shellcheck source=/dev/null
     source "$OPENRC"
 else
     echo "❌ admin-openrc not found!"
@@ -81,9 +82,9 @@ done
 
 echo "📡 Retrieving Floating IPs..."
 
-MASTER_FIP=$(openstack stack output show $STACK_NAME master_fip -f value -c output_value)
-WORKER1_FIP=$(openstack stack output show $STACK_NAME worker1_fip -f value -c output_value)
-WORKER2_FIP=$(openstack stack output show $STACK_NAME worker2_fip -f value -c output_value)
+MASTER_FIP=$(openstack stack output show "$STACK_NAME" master_fip -f value -c output_value)
+WORKER1_FIP=$(openstack stack output show "$STACK_NAME" worker1_fip -f value -c output_value)
+WORKER2_FIP=$(openstack stack output show "$STACK_NAME" worker2_fip -f value -c output_value)
 
 echo "Master:  $MASTER_FIP"
 echo "Worker1: $WORKER1_FIP"
