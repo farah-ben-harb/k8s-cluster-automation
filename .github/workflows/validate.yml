@@ -21,7 +21,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -77,9 +77,13 @@ jobs:
       - name: Check deployment script
         run: shellcheck deploy.sh
 
-      - name: Scan current checkout for secrets
+      - name: Scan checkout and added commits for secrets
         run: |
           docker run --rm \
             -v "$PWD:/repo" \
             zricethezav/gitleaks:v8.24.2 \
             detect --no-git --source=/repo --redact --no-banner
+          docker run --rm \
+            -v "$PWD:/repo" \
+            zricethezav/gitleaks:v8.24.2 \
+            detect --source=/repo --log-opts="--all origin/main..HEAD" --redact --no-banner
