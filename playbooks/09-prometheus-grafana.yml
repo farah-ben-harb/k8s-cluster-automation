@@ -23,6 +23,7 @@
       command: >
         helm repo add prometheus-community
         https://prometheus-community.github.io/helm-charts
+        --force-update
       environment:
         KUBECONFIG: /etc/kubernetes/admin.conf
 
@@ -40,6 +41,8 @@
         prometheus-community/kube-prometheus-stack
         --namespace monitoring
         --create-namespace
+        --wait
+        --timeout 10m
       environment:
         KUBECONFIG: /etc/kubernetes/admin.conf
 

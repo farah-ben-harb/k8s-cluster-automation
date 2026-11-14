@@ -21,18 +21,38 @@
         - name: Render Alertmanager configuration on the master
           ansible.builtin.template:
             src: ../manifests/alertmanager-config.yaml.j2
-            dest: /tmp/alertmanager-config.yaml
+            dest: /tmp/alertmanager.yaml
             mode: '0600'
           no_log: true
 
-        - name: Apply Alertmanager configuration to Kubernetes
-          ansible.builtin.command: kubectl --kubeconfig=/etc/kubernetes/admin.conf apply -f /tmp/alertmanager-config.yaml
+        - name: Apply Alertmanager Secret to Kubernetes without client-side plaintext metadata
+          ansible.builtin.shell: >-
+            set -o pipefail &&
+            kubectl --kubeconfig=/etc/kubernetes/admin.conf
+            create secret generic
+            alertmanager-monitoring-kube-prometheus-alertmanager
+            --namespace monitoring
+            --from-file=alertmanager.yaml=/tmp/alertmanager.yaml
+            --dry-run=client --output yaml |
+            kubectl --kubeconfig=/etc/kubernetes/admin.conf
+            apply --filename -
+          args:
+            executable: /bin/bash
           no_log: true
       always:
         - name: Remove temporary Alertmanager configuration
           ansible.builtin.file:
-            path: /tmp/alertmanager-config.yaml
+            path: /tmp/alertmanager.yaml
             state: absent
 
     - name: Restart Alertmanager pod
-      ansible.builtin.command: kubectl --kubeconfig=/etc/kubernetes/admin.conf delete pod -l app.kubernetes.io/name=alertmanager -n monitoring
+      ansible.builtin.command: kubectl --kubeconfig=/etc/kubernetes/admin.conf delete pod -l app.kubernetes.io/name=alertmanager -n monitoring --wait=true
+      no_log: true
+
+    - name: Wait for Alertmanager to become ready
+      ansible.builtin.command: >-
+        kubectl --kubeconfig=/etc/kubernetes/admin.conf
+        wait --for=condition=Ready pod
+        -l app.kubernetes.io/name=alertmanager
+        -n monitoring --timeout=120s
+      changed_when: false

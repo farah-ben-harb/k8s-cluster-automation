@@ -27,5 +27,5 @@
     - name: Wait for nginx pod to be ready
       command: >
         kubectl --kubeconfig=/etc/kubernetes/admin.conf
-        rollout status deployment/nginx-deployment
+        rollout status deployment/nginx-deployment --timeout=120s
 
